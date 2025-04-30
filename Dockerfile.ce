@@ -1,19 +1,16 @@
-FROM golang:1.22.5-bookworm AS BUILD
+FROM golang:1.21 AS builder
 
-RUN mkdir /app
 WORKDIR /app
 COPY . .
-WORKDIR /app/src
-RUN go mod download
-WORKDIR /app
-RUN make -f Makefile.ce build
+RUN go build -o zep ./cmd/server
 
-FROM debian:bookworm-slim AS RUNTIME
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+FROM debian:bullseye-slim
 WORKDIR /app
-COPY --from=BUILD /app/out/bin/zep /app/
-# Ship with default config that can be overridden by ENV vars
-COPY zep.yaml /app/
-
+COPY --from=builder /app/zep /app/
+COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/web /app/web
+COPY --from=builder /app/.env /app/.env
 EXPOSE 8000
-ENTRYPOINT ["/app/zep"]
+
+CMD ["./zep"]
+
